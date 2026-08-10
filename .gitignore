@@ -1,0 +1,65 @@
+# Flowform local workspace / experiment outputs
+workspace/
+reports/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Build outputs
+build/
+out/
+dist/
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+*.egg-info/
+
+# Node / Web
+node_modules/
+.npm/
+.pnpm-store/
+.vite/
+.next/
+
+# IDE / editor local state
+.vs/
+.idea/
+*.user
+*.suo
+*.VC.db
+*.VC.opendb
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs / temp
+*.log
+*.tmp
+*.temp
+*.bak
+
+# Large local training artifacts should live under workspace/.
+# Model files intended for release should later be managed explicitly
+# (for example with Git LFS or release artifacts) instead of broad ignores.
