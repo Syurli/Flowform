@@ -1,0 +1,4 @@
+name,category,purpose,code_license,model_license,data_license,redistribution_status,review_status,notes
+ARDY,reference runtime,Runtime / control reference,TBD,TBD,TBD,TBD,pending,"Verify upstream repository, model and dataset licenses separately before reuse or redistribution."
+MotionBricks,reference training,Motion representation / training reference,TBD,TBD,TBD,TBD,pending,"Verify code, pretrained models and training datasets separately."
+Kimodo,reference generation,Motion generation / synthetic data reference,TBD,TBD,TBD,TBD,pending,"Verify code, generated-output terms, pretrained model and source dataset terms separately."
