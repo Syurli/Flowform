@@ -3,37 +3,38 @@
 > 项目：**流形 Flowform**  
 > 技术定位：**Neural Motion Framework**  
 > 品牌归属：**A BAIGE Project**  
-> 周期：**2026-08-10 ～ 2027-08-09**
+> 周期：**2026-08-10 ～ 2027-08-09**  
+> 本次校准：**2026-08-17**
 
 ## 1. 年度产品目标
 
-第一年不以研究论文或单一 Demo 为终点，而是交付一个可以实际开源使用的：
+第一年不以论文复现或单一神经网络 Demo 为终点，而是交付一个真正可训练、可调试、可跨引擎运行的 Neural Motion Framework。
 
-> **跨引擎、可训练的 Neural Locomotion Framework**
-
-目标用户为独立开发者和中小型游戏团队。
+目标用户为独立开发者与中小型游戏团队。
 
 理想用户流程：
 
 ```text
 安装 Flowform
     ↓
-导入自己的 Locomotion 动画
+导入自己的动作
 BVH / FBX / Mocap
     ↓
 Skeleton Mapping / Retarget
     ↓
-自动数据预处理
+自动预处理 + Dataset Audit
     ↓
-基于 Base Model 训练 / 微调自己的 Style
+配置 Control Schema
     ↓
-Flowform Lab 网页实时试玩和调参
+训练 / 微调 Controller
+    ↓
+Flowform Lab 实时试玩与 Benchmark
     ↓
 Export Model Package
     ↓
-Unreal / Unity / Godot
+Unreal / Unity / Godot / Web
     ↓
-实时 Neural Locomotion
+实时 Neural Motion
 ```
 
 ## 2. v1.0 范围
@@ -45,470 +46,394 @@ Unreal / Unity / Godot
 - 加减速；
 - 任意方向转向；
 - Strafe / Backward；
+- Rapid Input Change；
 - Continuous Transition；
-- Style-conditioned Locomotion；
-- 基础姿态状态切换；
-- 为未来 Traversal / Interaction 留接口。
+- Style-conditioned Motion；
+- 基础 Aim / Prop / Overlay Control 接口；
+- 为 Traversal / Interaction 留正式 Control 接口。
 
-第一年**不追求神经网络替代所有动画系统**。攻击、换弹、技能、处决以及严格 Timing 的动作仍允许传统 Animation / Montage 等系统接管。
+第一年不追求神经网络替代所有动画系统。攻击、换弹、技能、处决和严格 Timing 的动画仍允许传统 Animation / Montage / Layered Animation 接管。
 
-Traversal、Smart Object、Hand Interaction、Full Body Target Pose、Combat Transition 等能力可以在第一年研究接口，但正式能力放在 v1.x / v2.0。
+## 3. 经最新研究校准后的核心架构
 
-## 3. 产品架构
+Flowform 不再假设“所有模型都一次生成 Future Motion Chunk”，也不把某一个 Transformer 结构写死为产品核心。
 
 ```text
-                         Flowform
+Motion Data
+   ↓
+Canonical Skeleton / Motion Representation
+   ↓
+Pose Encoder / Decoder（可选）
 
- ┌──────────────────────────────────────────────┐
- │                  Flowform Lab                │
- │                                              │
- │ Runtime Debug / Dataset Inspector            │
- │ Model Compare / Training Monitor             │
- │ Style Preview / Benchmark                    │
- └──────────────────────┬───────────────────────┘
-                        │
- ┌──────────────────────▼───────────────────────┐
- │               Flowform Training              │
- │                                              │
- │ Import → Retarget → Process → Train          │
- │ Fine-tune → Benchmark → Export               │
- └──────────────────────┬───────────────────────┘
-                        │
-                 Flowform Model Package
-                     .onnx + metadata
-                        │
- ┌──────────────────────▼───────────────────────┐
- │                Flowform Runtime              │
- │                                              │
- │ Engine-independent C++ Runtime               │
- │ Motion Buffer / Async Inference              │
- │ Root / Pose / Contact / Replan               │
- └───────────────┬───────────────┬──────────────┘
-                 │               │
-           Flowform UE     Flowform Unity
-                 │
-           Flowform Godot
+Gameplay / Designer Intent
+   ↓
+Composable Control Schema
+   ↓
+Control Encoder
+
+           ┌────────────────────────────┐
+           │      IMotionModel          │
+           └─────────────┬──────────────┘
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+Autoregressive Backend          Future-chunk Backend
+frame-by-frame                  buffered generation
+Flow Matching / etc.            Transformer / Diffusion / etc.
+          │                             │
+      Next Pose                 Future Motion Chunk
+          └──────────────┬──────────────┘
+                         ↓
+                  Flowform Runtime
+                         ↓
+                 Engine Bridge / Web
 ```
 
-核心约束：
+核心原则：
 
-> **Flowform Training 与引擎通过 Canonical Skeleton + Model Package 解耦。**
+1. **Motion Representation、Control Schema、Model、Runtime Strategy 相互解耦。**
+2. Control 不以固定超长向量为唯一表示，而以可组合 Schema 描述 Trajectory、Facing、Style、Target、Optional State、Interaction 等语义。
+3. Runtime 必须能够同时容纳 frame-by-frame autoregressive 与 future-buffer / replan 两类模型。
+4. Model Package 需要声明模型能力、历史长度、预测方式、Runtime Strategy、LOD / Quality Tier 与许可证信息。
+5. Unreal 是首个正式引擎落地，但不能成为核心架构前提。
 
-不能训练出只能供某一个引擎使用的模型。
+详见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 
-## 4. 12 个月里程碑
+## 4. 参考系统分级
+
+| Priority | Reference | 主要回答的问题 |
+|---|---|---|
+| S | AnimGen / Control Operators | 如何让设计师组合 Control？如何在 Latent Pose 上训练自回归 Flow-Matching Controller？如何在编辑器训练、蒸馏和分 LOD？ |
+| A | ARDY | 玩家意图、未来轨迹、Anchor、响应和 Replan 应如何组织？ |
+| A | CAMDM | Future Motion Buffer、Lazy Replan、Trajectory Fusion、Style 与实时 Diffusion 如何组织？ |
+| A | MotionBricks | Motion Representation、模块化训练、异步 Runtime 与大规模动作语料如何组织？ |
+| B | Kimodo | Synthetic / Teacher Motion 是否能降低数据获取成本？ |
+
+参考优先级不等于最终技术选型。Flowform 的技术选型必须由可重复实验结果决定。
+
+## 5. 12 个月里程碑
 
 | 月份 | 阶段 | 核心交付 | 状态目标 |
 |---|---|---|---|
-| M1 | 工作站与参考系统 | ARDY / MotionBricks / Kimodo + 项目骨架 | 能完整实验 |
-| M2 | Flowform Lab Alpha | 网页实时操控 ARDY | 第一套产品原型 |
-| M3 | 数据系统 | Canonical Skeleton + Dataset Pipeline | 摆脱特定仓库格式 |
-| M4 | **Flowform Model V0** | 自研小型 Transformer | **网页运行自己的模型** |
-| M5 | Motion Controller V1 | Anchor / Replan / Buffer / Root | 操控达到可玩 |
-| M6 | 数据与质量体系 | Benchmark + Teacher Dataset | 可系统迭代 |
-| M7 | Style Training | Style Condition / Adapter | 用户可训练风格 |
-| M8 | Flowform Runtime Alpha | ONNX + C++ Runtime | 脱离 Python Runtime |
-| M9 | Flowform UE Alpha | Unreal Locomotion 实装 | 第一个游戏引擎 |
+| M1 | 工作站与参考系统 | AnimGen / Control Operators + ARDY / CAMDM / MotionBricks 基线 | 形成可信技术基线 |
+| M2 | Flowform Lab Alpha | 多参考系统观察 / 回放 / 控制与统一实验 UI | 第一套产品原型 |
+| M3 | 数据与 Control 系统 | Canonical Skeleton + Dataset Pipeline + Control Schema | 摆脱特定仓库格式 |
+| M4 | **Flowform Controller V0** | 自有 Latent / Control / Controller 最小闭环 | **网页运行自己的 Controller** |
+| M5 | Runtime Strategy V1 | Autoregressive + Future-chunk 统一 Runtime | 操控达到可玩 |
+| M6 | Benchmark 与数据质量 | Research + Gameplay Benchmark、Dataset Audit | 可系统迭代 |
+| M7 | Style / Custom Training | Style Embedding / Adapter / Control | 用户可训练风格 |
+| M8 | Flowform Runtime Alpha | ONNX + C++ Runtime + Model Package | 脱离 Python Runtime |
+| M9 | Flowform UE Alpha | Unreal 实装 | 第一个正式游戏引擎 |
 | M10 | 跨引擎 Beta | Unity + Godot Bridge | 架构验证完成 |
 | M11 | Open Source Beta | Training UX / 示例 / CI / 文档 | 外部开发者可使用 |
 | M12 | **v1.0** | 开源发布 + Base Model + Samples | 第一代产品完成 |
 
 ---
 
-## M1｜工作站与参考系统基线
+# M1｜工作站与参考系统基线
 **2026-08-10 ～ 2026-09-09**
 
-目标：建立可重复运行、训练、测试和收集报告的本地工作站。
+目标：建立可重复实验工作站，并通过可复现 Baseline 回答 Flowform M2～M4 的关键架构问题。
 
-主要内容：
+### M1 核心参考
 
-- Windows 开发环境；
-- WSL2 / Ubuntu AI 环境；
-- CUDA / PyTorch / Python / CMake / Git LFS；
-- 验证 ARDY；
-- 验证 MotionBricks；
-- 验证 Kimodo；
-- 建立 Environment Doctor；
-- 建立实验记录与 TestReport 打包；
-- 建立第三方依赖 / License Register。
+1. **AnimGen Player Controller**：运行官方预训练版本；使用示例自带训练数据按默认配置重新训练；使用本地训练产物重新运行；记录训练时间、VRAM、产物、Runtime 与动作表现。
+2. **AnimGen NPC Controller**：只运行、观察、记录。由于官方未提供训练数据，不把它列为可复现训练 Baseline。
+3. **Control Operators Python Reference**：跑通公开的简化参考实现，理解 Control Operator、Pose Latent 与 Flow-Matching Autoregressive Controller 的最小闭环。
+4. **ARDY**：验证 Player Intent / Trajectory / Anchor / Replan。
+5. **CAMDM**：验证 Future Chunk / Lazy Replan / Trajectory Fusion / Style / Diffusion Runtime。
+6. **MotionBricks**：验证可获得实现中的 Motion Representation / Training / Runtime 架构；若公开实现或训练资料不足，允许以 Architecture Evidence Card 代替完整训练。
+7. **Kimodo**：Teacher / Synthetic Motion 评估，不作为 M1 核心 Gate 阻塞项。
 
-M1 Gate：
+### M1 Gate
 
 ```text
-Environment      PASS
-GPU / CUDA       PASS
-ARDY             PASS
-MotionBricks     PASS
-Kimodo           PASS
-Report Packaging PASS
+Environment / GPU                  PASS
+Experiment Report Pipeline         PASS
+AnimGen Player Runtime             PASS
+AnimGen Player Re-train            PASS
+AnimGen NPC Capability Record      PASS
+Control Operators Reference        PASS
+ARDY Control / Replan Baseline     PASS
+A-level Architecture Comparison    PASS
+Reference Decision Report          PASS
 ```
+
+CAMDM / MotionBricks 的完整长训练不是 M1 的强制条件；要求至少完成预训练推理、最小训练烟雾测试或形成明确的不可复现 / 延后原因记录。
 
 详细计划：[`plans/M1_WORKSTATION_BASELINE.md`](plans/M1_WORKSTATION_BASELINE.md)
 
 ---
 
-## M2｜Flowform Lab Alpha
+# M2｜Flowform Lab Alpha
 **2026-09-10 ～ 2026-10-09**
 
-开始制作第一个属于 Flowform 的产品原型。
+目标：建立第一套属于 Flowform 的 Web 产品原型，但不再让 Lab 绑定 ARDY 单一 Provider。
 
-初步技术链：
+第一版能力：
 
-```text
-Babylon.js + TypeScript
-          ↕
-       WebSocket
-          ↕
-FastAPI / Python Motion Server
-          ↕
-        ARDY Provider
-```
+- Pose Viewer；
+- Root / Trajectory Viewer；
+- Control Inspector；
+- Predicted / Desired / Blended Trajectory；
+- Frame-by-frame 与 Future-chunk 两种生成结果观察；
+- Foot Contact；
+- Runtime Timing；
+- Model / Reference Compare；
+- Experiment Replay；
+- Scenario Runner。
 
-Flowform Lab 展示：
-
-- Current Pose；
-- Generated Pose；
-- Trajectory Anchor；
-- Desired / Generated Trajectory；
-- Root；
-- Foot Contacts；
-- Current / Target Speed；
-- Heading；
-- Prediction Horizon；
-- Inference Time；
-- Buffer Size；
-- Replan Count。
-
-建立核心抽象：
+建议接口从简单的 `Predict(history, intent) -> future` 升级为 Capability-based：
 
 ```text
 IMotionModel
-
-Predict(
-    History,
-    MotionIntent
-)
-→ FutureMotion
+├─ DescribeCapabilities()
+├─ Reset(PoseState)
+├─ SetControls(ControlSet)
+├─ Step(dt)
+└─ GetGenerationResult()
 ```
 
-ARDY 只作为 `ArdyProvider`，后续 Flowform Model 可以直接替换。
+`GenerationResult` 可以是 Next Pose，也可以携带 Future Motion Chunk。
 
-验收：浏览器完成 WASD / Controller 的 Idle、Walk、Run、Stop、Turn、Re-accelerate，并能观察玩家意图 → Anchor → Prediction → Runtime Motion。
-
-**Gate B：Flowform Lab Alpha。**
+**Gate B：同一个 Flowform Lab 可以观察至少两类不同 Runtime Strategy，而 UI 不依赖具体模型。**
 
 ---
 
-## M3｜Flowform 数据体系
+# M3｜数据体系 + Control Schema
 **2026-10-10 ～ 2026-11-09**
 
-建立自己的 Canonical Skeleton 与统一动作数据格式。
+建立 Flowform 自己的数据与控制语义层。
 
-第一版 Canonical Skeleton 约 22～30 个主要骨骼，不处理 Face / Finger。
+### Canonical Motion
 
-核心数据结构：
+第一版 Skeleton 聚焦主要身体骨骼，Face / Finger 不作为 v1.0 必需项。
+
+核心数据：
 
 ```text
+SkeletonDefinition
 MotionFrame
 MotionClip
-SkeletonDefinition
 MotionDataset
-MotionIntent
-TrajectoryAnchor
+PoseFeature
+RootState
 FootContact
 ```
 
-特征至少支持：
+特征候选至少覆盖 Rotation6D、Joint Position / Velocity、Root Position / Velocity / Heading、Contact，并通过实验决定 Pose AutoEncoder 输入。
 
-- Joint Local Rotation6D；
-- Joint Position；
-- Joint Velocity；
-- Root Position；
-- Root Velocity；
-- Root Heading；
-- Root Angular Velocity；
-- Foot Contact。
+### Control Schema
 
-数据管线：
+第一批语义：
 
 ```text
-BVH / NPZ / CSV
-       ↓
-Skeleton Mapping
-       ↓
-Retarget
-       ↓
-Resample
-       ↓
-Normalize
-       ↓
-Motion Feature
-       ↓
-Sliding Window
-       ↓
-Training Dataset
+Trajectory
+Velocity
+Facing
+Style / Tag
+Optional
+Target
+Interaction
+Prop / Equipment
+Multi / Composite
 ```
 
-Flowform Lab 增加 Dataset Inspector。
-
-目标 CLI：
+并明确区分：
 
 ```text
-flowform import ./motions/
-flowform preprocess
-flowform inspect
+Ground Truth Motion != Runtime Control Intent
 ```
 
-**Gate C：训练数据不再依赖 ARDY / MotionBricks 内部格式。**
+数据预处理必须支持 Control Augmentation，例如轨迹平滑、噪声、突然改向、Stop-Recover 与非完美玩家输入。
+
+**Gate C：训练数据与控制数据不再依赖任何单一参考项目内部格式。**
 
 ---
 
-## M4｜Flowform Model V0
+# M4｜Flowform Controller V0
 **2026-11-10 ～ 2026-12-09**
 
-训练第一代自有模型。
+M4 不再预设“必须是 5M～20M Small Transformer”。目标改为：
 
-V0 不做 Diffusion、VQ-VAE、Motion Token 或文本控制，先验证最小闭环：
+> **用最小、自有、可解释的 Controller 完成 Dataset → Training → Runtime → Web → Benchmark 闭环。**
 
-```text
-Past Motion
-+
-Player Intent
-+
-Trajectory Anchor
-       ↓
-Small Transformer
-       ↓
-Future Motion
-```
+优先实验：
 
-初步模型规模：5M～20M parameters。
-
-重点场景：
-
-- Idle → Walk；
-- Idle → Run；
-- Run → Stop；
-- Run → Stop → Run；
-- Forward → Left / Right；
-- 90° Turn；
-- 180° Turn；
-- Slow → Fast；
-- Fast → Slow。
-
-重点重现：
+### V0-A｜Latent Autoregressive Flow Controller
 
 ```text
-输入减弱
-→ Anchor 收近
-→ 预测停步
-→ 正在减速
-
-输入重新恢复
-→ Anchor 拉远
-→ Replan
-→ 中断停步
-→ 重新加速
+Pose
+ ↓
+Pose AutoEncoder
+ ↓
+Previous Pose Latent
+ +
+Encoded Control
+ +
+Flow State / Noise
+ ↓
+Flow-Matching Controller
+ ↓
+Next Pose Latent
+ ↓
+Decoder
+ ↓
+Next Pose
 ```
 
-验收：Flowform Lab 可在 ARDY 与 Flowform Model V0 之间切换，自有模型独立实时运行。动作质量暂不要求优于 ARDY，要求技术闭环属于 Flowform。
+参考 Control Operators / AnimGen 的思想，但独立实现。
 
-**Gate D：Own Model Milestone。**
+### V0-B｜Deterministic Baseline
+
+使用同一 Pose Representation 与 Control Schema，训练一个更简单的 deterministic predictor，作为质量、稳定性、成本与调试难度对照。
+
+只有实验显示 sequence Transformer / future-chunk 更适合时，才把它提升为首版主模型。
+
+重点 Scenario：Idle→Walk、Idle→Run、Run→Stop、Stop-Recover、90°、180°、Strafe、Acceleration / Deceleration、Rapid Direction Change。
+
+**Gate D：Flowform Lab 能完全脱离参考系统运行 Flowform 自有 Controller。**
 
 ---
 
-## M5｜Motion Controller V1
+# M5｜Runtime Strategy V1
 **2026-12-10 ～ 2027-01-09**
 
-从“会预测动作”进入“游戏 Locomotion Controller”。
+统一两类运行时：
+
+### Autoregressive
 
 ```text
-Motion History
-Trajectory Anchor
-Motion Intent
+Current Pose + Controls
         ↓
-Neural Motion Planner
+Generate Next Pose
         ↓
-Future Motion Buffer
-        ↓
-Runtime
+Update State
 ```
 
-Runtime 加入：
+### Future-chunk
 
-- Prediction Buffer；
-- History Buffer；
-- Replan Buffer；
+```text
+History + Controls
+        ↓
+Generate Future Chunk
+        ↓
+Motion Buffer
+        ↓
+Consume / Replan
+```
+
+公共 Runtime 负责：
+
+- Root / Pose；
+- Contact；
+- Correction；
+- Async Inference；
 - Generation ID；
-- Interpolation；
-- Root Correction；
-- Foot Lock；
-- Contact。
+- Reset / Teleport；
+- LOD / Evaluation Period；
+- Fallback；
+- Runtime Metrics。
 
-Root Motion 与 Body Motion 明确拆分。
-
-核心 KPI：Input Response、Stopping Distance、Turning Responsiveness、Foot Sliding、Pose Jitter、Root Error。
-
-验收：动作开始具有游戏操控感，而不只是“看起来像人在运动”。
+**Gate：动作具有可接受的游戏操控感，并且 Runtime 不绑定一种模型策略。**
 
 ---
 
-## M6｜Benchmark 与数据生成体系
+# M6｜Benchmark 与数据质量体系
 **2027-01-10 ～ 2027-02-09**
 
-固定长期回归 Scenario：
+建立两层 Benchmark。
 
-```text
-Start
-Stop
-Stop-Recover
-90°
-180°
-Strafe
-Backward
-Acceleration
-Deceleration
-Rapid Input Change
-```
+### Research Metrics
 
-每个模型自动生成：
+- Foot Sliding；
+- Acceleration / Jerk；
+- Trajectory Error；
+- Orientation Error；
+- Style Accuracy；
+- Diversity；
+- Pose / Root Error；
+- 适用时加入 FID 等分布指标。
 
-```text
-TestReport/
-├─ metrics.json
-├─ input.json
-├─ motion.npz
-├─ video/
-├─ screenshots/
-└─ runtime.log
-```
+### Gameplay Metrics
 
-同时建立 Teacher Data Pipeline，在许可允许的前提下利用外部模型 / 数据源补充动作数据。
+- Input Response；
+- Stop Distance；
+- Replan / Recovery Latency；
+- 90° / 180° Turn；
+- Rapid Input Change；
+- Root Drift；
+- Pose Jitter；
+- Frame Time；
+- CPU / GPU Cost；
+- 多角色 Scaling。
 
-目标：模型版本 V0.x 可以自动、可重复比较。
+同时增加 Dataset Audit：覆盖率、方向 / 速度 / Transition / Style / Prop 分布与缺失提示。
 
 ---
 
-## M7｜Style Training
+# M7｜Style 与用户自定义训练
 **2027-02-10 ～ 2027-03-09**
 
-产品差异化目标：**Bring Your Own Motion Style**。
+目标：**Bring Your Own Motion Style**。
 
-典型 Style：Normal、Military、Heavy、Robot、Injured、Zombie、Crouched 等。
+研究：
 
-研究两条路线：
-
+- Style / Tag Control；
 - Style Embedding；
-- Lightweight Style Adapter。
+- Lightweight Adapter；
+- 少量动作微调；
+- Style Transition；
+- Dataset Balance。
 
-目标不是让用户重训完整模型，而是：
+Flowform Training 应能够告诉用户“缺什么数据”，而不是只给一个 Train 按钮。
 
-> 少量自己的动作 → 得到自己的运动风格。
-
-Training Toolkit 产品化目标：
-
-```text
-flowform doctor
-flowform import
-flowform preprocess
-flowform train-style
-flowform benchmark
-flowform export
-```
-
-验收：Base Style + 至少两个明显不同的 Style，在同一输入下肉眼可区分。
-
-**Gate E：Custom Style Milestone。**
+**Gate E：同一控制输入下，Base + 至少两个用户风格可以稳定区分。**
 
 ---
 
-## M8｜Flowform Runtime Alpha
+# M8｜Engine-independent Runtime Alpha
 **2027-03-10 ～ 2027-04-09**
 
-建立 Engine-independent C++17/20 Runtime。
+建立 C++ Runtime 与统一 Model Package。
 
-核心 API 方向：
-
-```cpp
-Runtime.PushPose(...);
-Runtime.SetMotionIntent(...);
-Runtime.SetTrajectoryAnchor(...);
-Runtime.Update(...);
-Runtime.GetPose(...);
-```
-
-Backend：
-
-- ONNX Runtime CPU；
-- ONNX Runtime CUDA；
-- TensorRT。
-
-第一代模型包建议：
+候选内容：
 
 ```text
-MyModel.flowform/
-├─ model.onnx
-├─ skeleton.json
-├─ normalization.json
+Model.flowform/
 ├─ model.json
-├─ style.json
+├─ skeleton.json
+├─ controls.json
+├─ normalization.json
+├─ pose_encoder.onnx      # optional
+├─ pose_decoder.onnx      # optional
+├─ control_encoder.onnx   # optional
+├─ controller.onnx
+├─ lod/                   # optional
 └─ license.json
 ```
 
-> 模型包最终扩展名 / 容器格式在实现阶段冻结，此处仅表示内容结构。
+Backend 至少支持 ONNX Runtime CPU / CUDA；TensorRT 或其他高性能 Backend 由 Benchmark 决定，不在文档阶段写死。
 
-验收：Flowform Lab 可以切换 Python Runtime 与 C++ Runtime，输出在容差范围内一致。
-
-**Gate F：Runtime Independence。**
+**Gate F：Python 与 C++ Runtime 输出在允许容差内一致。**
 
 ---
 
-## M9｜Flowform UE Alpha
+# M9｜Flowform UE Alpha
 **2027-04-10 ～ 2027-05-09**
 
-第一个正式游戏引擎落地。
+实现 Unreal Bridge：Model Load、Skeleton Mapping、Movement / Control 输入、Async Inference、Pose Output、Debug Draw、Fallback、LOD。
 
-目标结构：
+AnimGen 是重要 UE 产品化参考，但 Flowform UE 必须通过 Flowform Runtime / Model Package 工作，不复制 AnimGen Engine Code，也不让 Flowform 核心依赖 UE。
 
-```text
-CharacterMovement
-       ↓
-Flowform Component
-       ↓
-Flowform Runtime
-       ↓
-Motion Buffer
-       ↓
-AnimNode
-       ↓
-CompactPose
-```
-
-第一版功能：
-
-- Load Model；
-- Skeleton Mapping；
-- Locomotion Input；
-- Async Inference；
-- Pose Output；
-- Debug Draw；
-- Fallback Animation。
-
-验收：UE 标准第三人称 Demo 完成 Idle、Walk、Run、Stop、Turn、Strafe、Style。
-
-**Gate G：第一个真正游戏版本。**
+**Gate G：标准 UE Demo 完成 Flowform 自有 Controller Locomotion。**
 
 ---
 
-## M10｜跨引擎验证
+# M10｜跨引擎验证
 **2027-05-10 ～ 2027-06-09**
 
-验证 Flowform 是 Runtime，而不是 UE 专用插件。
-
-Unity：Native Runtime + AnimationJob / Playable。  
-Godot：GDExtension + Skeleton3D。
-
-不要求功能与 UE 同等完整，目标是证明同一个 Model Package 可供：
+同一 Model Package 至少在：
 
 ```text
 Flowform Lab
@@ -517,150 +442,58 @@ Flowform Unity
 Flowform Godot
 ```
 
-使用并得到基本一致的 Locomotion。
+完成基本一致的 locomotion。
 
 **Gate H：Cross-engine Architecture Validated。**
 
 ---
 
-## M11｜Open Source Beta
+# M11｜Open Source Beta
 **2027-06-10 ～ 2027-07-09**
 
-停止扩张大功能，验证“陌生开发者能否真的使用”。
+停止扩张大功能，重点验证陌生开发者是否能够：安装、导入数据、训练、Benchmark、导出、接入 UE，并理解许可证边界。
 
-交付：
-
-- Installer / Environment Setup；
-- Training Preset；
-- Sample Dataset；
-- Base Model；
-- Model Export；
-- Flowform UE Sample；
-- Flowform Unity Sample；
-- Flowform Godot Sample；
-- Flowform Lab。
-
-完善 `flowform doctor`，检查 GPU、CUDA、PyTorch、VRAM、Disk、Dependencies、Dataset、Model。
-
-CI：
-
-- Windows CI；
-- Linux CI；
-- Training Smoke Test；
-- ONNX Export；
-- Runtime Tests；
-- Engine Bridge Builds / Tests。
-
-同时完成 LICENSE、NOTICE、Third-party Attribution、Dataset License Matrix、Model Card。
+完善 `flowform doctor`、Sample Dataset、Base Model、Training Preset、CI、模型卡、Dataset Card、License Matrix。
 
 ---
 
-## M12｜v1.0 Release
+# M12｜v1.0 Release
 **2027-07-10 ～ 2027-08-09**
 
-原则：**禁止继续研发新的大功能。**
+只做 Bug Fix、Performance、Packaging、Regression、Documentation 与 Release。
 
-重点：Bug Fix、Performance、Packaging、Documentation、Samples、Regression、Benchmark、Release。
+最终目标仍然是：
 
-正式交付：
+> **一个开源、可训练、可调试、跨引擎、且不被单一神经网络结构定义的 Neural Motion Framework。**
 
-### Flowform Runtime
-- Windows / Linux；
-- CPU / CUDA；
-- TensorRT 正式路径。
+## 6. 年度关键 Gate
 
-### Flowform Lab
-- Runtime Debug；
-- Dataset Inspector；
-- Model Benchmark；
-- Style Preview。
+1. **Reference Gate**：AnimGen Player 可本地重训，Control Operators Reference 可运行，主要参考系统形成统一对照结论。
+2. **Lab Gate**：Flowform Lab 不绑定某一种模型或 Runtime Strategy。
+3. **Own Controller Gate**：自有 Controller 在 Web 中实时运行。
+4. **Gameplay Gate**：Start / Stop / Rapid Change / Turn 达到游戏可用。
+5. **Custom Training Gate**：用户动作 / Style 可训练。
+6. **Runtime Gate**：C++ Runtime 与 Model Package 独立于引擎。
+7. **Cross-engine Gate**：同一模型包运行于多个引擎。
 
-### Flowform Training
-- Import；
-- Preprocess；
-- Train / Fine-tune；
-- Benchmark；
-- Export。
+## 7. 路线调整规则
 
-### Engine Bridges
-- Flowform UE：正式支持；
-- Flowform Unity：Beta；
-- Flowform Godot：Beta。
+后续发现新论文 / 新 Demo 时按以下顺序处理：
 
-### Models
-- Base Locomotion Model；
-- 2～3 Style Examples。
+```text
+发现参考
+  ↓
+确认来源 / 许可 / 可复现性
+  ↓
+建立 Reference Card
+  ↓
+跑 Baseline 或记录不可复现边界
+  ↓
+与现有 Scenario / Benchmark 对照
+  ↓
+形成 Architecture Decision
+  ↓
+必要时更新 Roadmap
+```
 
-### Documentation
-- 5 Minute Quick Start；
-- Train Your First Style；
-- Unreal Integration；
-- Unity Integration；
-- Godot Integration；
-- Model Format；
-- Runtime API；
-- Architecture。
-
----
-
-## 5. 五个年度关键 Gate
-
-### Gate 1｜2026 年 10 月
-ARDY 驱动的 Flowform Lab 可以实时玩。  
-**证明：产品框架成立。**
-
-### Gate 2｜2026 年 12 月
-ARDY 可以被 Flowform Model V0 替换。  
-**证明：核心 AI 技术独立。**
-
-### Gate 3｜2027 年 1 月
-自有模型具有可接受的游戏操控响应。  
-**证明：不只是 AI Demo。**
-
-### Gate 4｜2027 年 3 月
-用户能够训练自己的 Style。  
-**证明：产品是工具，而不是固定模型。**
-
-### Gate 5｜2027 年 6 月
-同一个模型包运行在多个引擎。  
-**证明：成为跨引擎 Locomotion Runtime。**
-
-## 6. 年度成功标准
-
-| 指标 | v1.0 标准 |
-|---|---|
-| 自有模型 | ✅ 不依赖 ARDY 推理 |
-| 实时 Locomotion | ✅ |
-| Start / Stop / Replan | ✅ |
-| 方向 / 速度连续控制 | ✅ |
-| Style Training | ✅ |
-| 用户自定义动作训练 | ✅ |
-| Flowform Lab | ✅ |
-| Flowform Runtime | ✅ |
-| ONNX | ✅ |
-| Windows / Linux | ✅ |
-| Flowform UE | ✅ 正式支持 |
-| Flowform Unity | ✅ Beta |
-| Flowform Godot | ✅ Beta |
-| 自动训练环境 | ✅ |
-| Model Package | ✅ |
-| 开源文档 | ✅ |
-| CI / Test | ✅ |
-
-第一年最关键的技术时间点：
-
-> **2026 年 12 月前，Flowform 自有模型必须能够在网页中实时运行。**
-
-年度节奏：
-
-> **前 4 个月证明 AI → 中间 3 个月证明产品 → 后 3 个月证明跨引擎 → 最后 2 个月完成开源产品化。**
-
-## 7. 协作原则
-
-项目采用产品与结果驱动协作：
-
-- 产品负责人负责产品目标、动作表现判断、体验验收、本地执行与 UX 决策；
-- 架构、模型结构、Loss、Dataset Schema、训练代码、Runtime、跨引擎 ABI、实验策略、性能分析和问题定位由工程侧承担；
-- 不以“学习神经网络知识”作为里程碑；
-- 只有直接影响产品决策的技术概念才需要进入产品层讨论；
-- Loss 等指标是诊断工具，最终标准是游戏中的动作质量、稳定性与操控响应。
+不再因为单个效果视频直接重写核心架构。

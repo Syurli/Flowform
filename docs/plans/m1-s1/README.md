@@ -32,14 +32,14 @@
 
 所有步骤共同遵守：
 
-- 优先**检测现有环境**，不要默认重装。
-- 不覆盖用户已有 Unreal Engine、ComfyUI、Python、CUDA 或 Visual Studio 环境。
-- 不因为版本不一致就擅自降级 NVIDIA Driver。
-- 不执行会删除 WSL 数据、覆盖 PATH、替换系统 Python 的破坏性操作。
-- 遇到需要重启、BIOS/UEFI 修改、驱动重装、全局工具链替换时，先停止并报告。
-- 对具有时效性的 PyTorch / CUDA / RTX 5090D 兼容信息，执行时以**官方 PyTorch / NVIDIA 文档**为准，不依赖计划文件中的静态版本猜测。
-- 所有自动化脚本必须给出清晰 exit code 和错误信息。
-- 本地环境报告应可追溯到当前 Flowform Git commit。
+- 优先**检测现有环境**，不要默认重装；
+- 不覆盖用户已有 Unreal Engine、ComfyUI、Python、CUDA 或 Visual Studio 环境；
+- 不因为版本不一致就擅自降级 NVIDIA Driver；
+- 不执行会删除 WSL 数据、覆盖 PATH、替换系统 Python 的破坏性操作；
+- 遇到需要重启、BIOS/UEFI 修改、驱动重装、全局工具链替换时，停止并报告；
+- 对具有时效性的 PyTorch / CUDA / RTX 5090D 兼容信息，执行时以官方 PyTorch / NVIDIA 文档为准；
+- 所有自动化脚本必须给出清晰 exit code 和错误信息；
+- 本地环境报告应可追溯到当前 Flowform Git commit；
 - `reports/`、虚拟环境、缓存和大型下载内容不得提交 Git。
 
 ## M1-S1 最终成功标准
@@ -58,7 +58,7 @@ EnvironmentReport      PASS
 
 ```text
 M1-S1: PASS
-Next: M1-S2 ARDY Bring-up
+Next: M1-S2 AnimGen Official Sample Baseline
 ```
 
-完成后再进入 ARDY，不要提前并行安装 ARDY / MotionBricks / Kimodo。
+> 2026-08-17 路线校准：原先的 `Next: ARDY Bring-up` 已调整。完成工作站基线后，优先执行 AnimGen 官方 Player 可训练样板，再执行 Control Operators Python Reference；ARDY 随后作为 Future Intent / Replan 对照。

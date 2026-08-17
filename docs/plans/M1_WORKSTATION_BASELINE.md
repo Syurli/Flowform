@@ -2,762 +2,429 @@
 
 > 项目：**流形 Flowform**  
 > 阶段周期：**2026-08-10 ～ 2026-09-09**  
-> 阶段目标：建立可重复实验的 Neural Motion 开发工作站，并完成参考系统基线。
+> 本次校准：**2026-08-17**  
+> 阶段目标：建立可重复实验的 Neural Motion 工作站，并形成足以支撑 Flowform M2～M4 的参考基线。
 
-## 1. M1 核心目标
+## 1. M1 目标已经从“跑三个参考项目”升级
 
-M1 不以“学习神经网络”为目标，而是建立后续可以反复运行、训练、测试和收集结果的本地工作站。
-
-最终工作流应达到：
-
-```text
-Flowform 工作站
-        │
-        ├── 开发环境固定
-        ├── ARDY 跑通
-        ├── MotionBricks 跑通
-        ├── Kimodo 跑通
-        ├── 数据 / 模型 / 日志目录规范
-        └── 一键运行 + 一键打包报告
-```
-
-理想协作流程：
+初版 M1 只计划 ARDY、MotionBricks、Kimodo。经过对 CAMDM、MotionBricks 最新实现线索以及 UE5.8 AnimGen / Control Operators 的研究，M1 现在需要更明确地区分：
 
 ```text
-定义实验
-   ↓
-本地一键运行
-   ↓
-人工体验 / 观察
-   ↓
-保存日志、截图、录像和配置
-   ↓
-打包 TestReport
-   ↓
-分析结果
-   ↓
-进入下一轮实验
+可完整训练复现
+可运行但训练不可复现
+可做最小训练烟雾测试
+只做架构 / 能力证据
 ```
 
-## 2. 本阶段明确不做
+M1 的最终成果不是“我们跑过很多 Demo”，而是：
 
-M1 不做：
+> **知道哪些架构真的能在本地完整跑通、它们各自在解决什么问题，并据此冻结 Flowform 首版 Control / Model / Runtime 边界。**
 
-- Flowform 自有 Transformer 设计；
-- Flowform Model V0 训练；
-- Flowform Lab 正式网页开发；
-- UE / Unity / Godot Bridge；
-- C++ Runtime；
-- TensorRT 性能优化；
-- Style Training；
-- 大规模动作数据收集；
-- 系统性 PyTorch / 深度学习教学；
-- 对 ARDY、MotionBricks、Kimodo 做深度二次开发。
+## 2. 参考优先级
+
+### S — 必须优先完成
+
+#### AnimGen Player
+
+```text
+Official Sample
+→ Pretrained Runtime
+→ Official Training Data
+→ Local Re-train
+→ Local Model Runtime
+→ Comparison
+```
+
+这是当前最重要的编辑器内训练闭环 Baseline。
+
+#### AnimGen NPC
+
+只做：
+
+```text
+Pretrained Runtime
+Control / Style / Prop Architecture
+LOD / Scalability
+Capability Record
+```
+
+不做训练复现，因为官方 Sample 未提供 NPC Training Data。
+
+#### Control Operators Python Reference
+
+跑通简化参考实现：
+
+```text
+Dataset
+→ Pose Representation / AutoEncoder
+→ Control Operators
+→ Flow-Matching Controller
+→ Interactive Runtime
+```
+
+它用于理解算法最小闭环，不等同于 Epic / 论文原始生产实现。
+
+### A — 重要架构对照
+
+- **ARDY**：Trajectory / Anchor / Prediction / Stop-Recover / Replan；
+- **CAMDM**：Future Chunk / Buffer / Lazy Replan / Trajectory Fusion / Diffusion / Style；
+- **MotionBricks**：Motion Representation / multi-stage architecture / async runtime / large motion corpus。
+
+### B — 数据方向
+
+- **Kimodo**：Motion Generation / Teacher / Synthetic Dataset，不阻塞 M1 Core Gate。
+
+## 3. 本阶段仍然不做
+
+- 不正式开发 Flowform 自有模型；
+- 不正式开发 Flowform Lab；
+- 不写 UE / Unity / Godot Bridge；
+- 不写跨引擎 C++ Runtime；
+- 不因为 AnimGen 很强就直接复制其架构；
+- 不因为 CAMDM 很强就直接改成 Diffusion；
+- 不猜测 AnimGen NPC 未公开的数据规模 / 训练方法；
+- 不为了“全绿”而对不可获得项目伪造复现结论。
 
 原则：
 
-> **先建立实验能力，再建立产品。**
+> **Baseline first. Evidence before architecture.**
 
-M2 才进入 Flowform Lab，M3 建立数据体系，M4 才训练 Flowform 自有模型。
+## 4. 工作站基础
 
-## 3. M1 工作站结构
+M1-S1 现有计划保持有效：Windows / WSL2 / NVIDIA / CUDA / Python / PyTorch / 5090D / EnvironmentReport。
 
-### Windows 主机
+现有执行索引：[`m1-s1/README.md`](m1-s1/README.md)
 
-```text
-Windows 11
-├─ NVIDIA Driver
-├─ Git
-├─ Git LFS
-├─ VS Code
-├─ Visual Studio / Build Tools
-├─ CMake
-├─ PowerShell
-└─ Browser
-```
-
-Windows 主要承担：
-
-- Git 与文件管理；
-- Web 前端；
-- 后续 C++ / Engine Bridge；
-- 启停脚本；
-- 查看实验结果。
-
-### WSL2 / Ubuntu
+环境通过标准：
 
 ```text
-WSL2 / Ubuntu
-├─ Python
-├─ CUDA Runtime
-├─ PyTorch
-├─ CMake
-├─ Ninja
-├─ Git
-└─ Python virtual environments
+Windows Dev Base       PASS
+WSL2                   PASS
+GPU / Driver           PASS
+Python Environment     PASS
+PyTorch CUDA           PASS
+GPU Tensor Smoke Test  PASS
+EnvironmentReport      PASS
 ```
 
-M1 原则：
-
-> **AI / Training 优先在 WSL2 中运行。**
-
-避免 Windows Python 与 WSL Python 混用导致环境不可复现。
+对 UE5.8 AnimGen，允许使用 Windows / Unreal 官方训练路径，不强制为了统一而迁入 WSL2。参考项目遵循其官方、最少摩擦的运行环境；Flowform 自有训练环境仍优先保持可脚本化与可复现。
 
 ---
 
-# Week 1｜2026-08-10 ～ 2026-08-16
-## 工作站、仓库和基础工具链
+# Sprint 1｜Workstation Baseline
+## 2026-08-10 ～ 2026-08-16
 
-目标：让工作站成为“可以复现的开发环境”，而不是当前电脑上恰好能跑。
+沿用现有 `docs/plans/m1-s1/`。
 
-### W1-1 仓库基础结构
-
-目标结构：
+完成后输出：
 
 ```text
-Flowform/
-├─ apps/
-│  └─ motionlab/
-├─ training/
-├─ runtime/
-├─ models/
-├─ tools/
-├─ bridges/
-├─ tests/
-├─ examples/
-├─ scripts/
-├─ configs/
-├─ docs/
-├─ third_party/
-├─ workspace/      # gitignore
-└─ reports/        # gitignore
+M1-S1: PASS
+Next: M1-S2 AnimGen Official Sample Baseline
 ```
 
-M1 重点使用：
-
-```text
-tools/
-tests/
-scripts/
-configs/
-docs/
-third_party/
-workspace/
-reports/
-```
-
-`third_party/`：第三方参考项目及其说明。  
-`workspace/`：模型、Dataset、Cache、Checkpoint 等本地大文件，不进入 Git。  
-`reports/`：实验报告，不默认进入 Git。
-
-### W1-2 环境检查工具
-
-建立第一版：
-
-```text
-flowform doctor
-```
-
-M1 可以先由以下脚本实现：
-
-```text
-scripts/doctor.ps1
-scripts/doctor.sh
-```
-
-检查：
-
-- OS；
-- WSL；
-- Ubuntu；
-- Python；
-- Git；
-- Git LFS；
-- GPU Name；
-- VRAM；
-- NVIDIA Driver；
-- CUDA availability；
-- PyTorch；
-- `torch.cuda.is_available()`；
-- CMake；
-- Disk Free Space；
-- RAM；
-- Workspace 路径。
-
-目标输出：
-
-```text
-Flowform Environment
-
-Windows             PASS
-WSL2                PASS
-Ubuntu              PASS
-
-GPU                  PASS
-VRAM                 PASS
-PyTorch              PASS
-CUDA                 PASS
-CUDA Device          PASS
-
-Git                  PASS
-Git LFS              PASS
-CMake                PASS
-Workspace            PASS
-
-Environment Status
-READY
-```
-
-环境状态必须自动检查，不能依赖“记得已经装过”。
-
-### Week 1 验收
-
-- [ ] Flowform 仓库建立；
-- [ ] WSL2 可用；
-- [ ] Python 环境可用；
-- [ ] PyTorch 可运行；
-- [ ] GPU 被 PyTorch 正确识别；
-- [ ] CUDA inference / training tensor test 成功；
-- [ ] Git LFS 正常；
-- [ ] CMake 正常；
-- [ ] Doctor 脚本可运行。
-
-### Gate 1A
-
-```text
-Environment: READY
-```
-
-未通过不进入参考系统 Bring-up。
+> 原计划中的 `Next: ARDY Bring-up` 已被最新研究结论替换。
 
 ---
 
-# Week 2｜2026-08-17 ～ 2026-08-23
-## ARDY Baseline
+# Sprint 2｜AnimGen 官方样板基线
+## 建议：2026-08-17 ～ 2026-08-20
 
-本周是 M1 的核心参考系统验证。
+详细计划：[`m1-s2/README.md`](m1-s2/README.md)
 
-重点观察：
+### 目标
 
-```text
-Target Velocity
-Target Heading
-Prediction Horizon
-History
-Auto-Replan
-Replan Buffer
-```
+1. 下载 / 打开 UE5.8 AnimGen 官方 Sample；
+2. 运行 Player Controller；
+3. 运行 NPC Controller；
+4. 使用官方数据、默认配置重新训练 Player；
+5. 用本地训练产物重新运行 Player；
+6. 完成 Pretrained vs Local Re-trained 对比。
 
-这些概念后续会映射到 Flowform 自己的 Motion Controller。
-
-## W2-1 官方原版 Bring-up
-
-原则：
-
-> **先跑官方原版，不先改代码。**
-
-流程：
+### 记录
 
 ```text
-Repository Clone
-        ↓
-Dependencies
-        ↓
-Model / Dataset
-        ↓
-Official Demo
-        ↓
-GPU Inference
-        ↓
-Character Motion
+UE Version
+Sample Version
+GPU / Driver
+Training Config
+Training Duration
+Peak VRAM
+Output Size
+Runtime Cost
+A01-A11 Scenario
+Visual Notes
 ```
 
-首要问题是确认官方版本能否在 Flowform 工作站上可靠运行，而不是立即研究或重构内部实现。
-
-## W2-2 ARDY Reference Card
-
-建立：
+### Gate
 
 ```text
-docs/reference/ARDY.md
+AnimGen Sample Open             PASS
+Player Pretrained Runtime       PASS
+NPC Capability Record           PASS
+Player Official Re-train        PASS
+Local Re-trained Runtime        PASS
+Baseline Report                 PASS
 ```
 
-只记录产品与架构层信息：
+NPC 明确记录：
 
-### 输入
-- Velocity；
-- Heading；
-- History；
-- Trajectory。
+```text
+Training Data: NOT PROVIDED
+Training Reproduction: NOT AVAILABLE
+```
 
-### 输出
-- Pose；
-- Root；
-- Future Motion。
+---
 
-### Runtime 行为
-- Prediction；
-- Replan；
-- Buffer。
+# Sprint 3｜Control Operators Python Reference
+## 建议：2026-08-21 ～ 2026-08-23
 
-### 可调参数
+详细计划：[`m1-s3/README.md`](m1-s3/README.md)
+
+### 目标
+
+跑通公开简化实现，重点理解：
+
+- Control Operators 如何组合；
+- Control Encoder 如何与 Controller 分离；
+- Pose / Latent 表示；
+- Flow Matching 训练；
+- Autoregressive frame-by-frame Runtime；
+- 最小模型的参数规模与实际训练成本。
+
+### Gate
+
+```text
+Reference Environment       PASS
+Dataset Loading             PASS
+Training Smoke / Baseline   PASS
+Interactive Runtime         PASS
+Architecture Notes          PASS
+```
+
+如果上游仓库许可证未明确，不把代码复制进 Flowform；只在 `third_party/` 或外部 workspace 中运行，并保留来源记录。
+
+---
+
+# Sprint 4｜ARDY Control / Replan Baseline
+## 建议：2026-08-24 ～ 2026-08-27
+
+ARDY 继续承担“Future Intent / Replan”对照角色。
+
+固定 Scenario：
+
+```text
+A01 Idle
+A02 Idle -> Walk
+A03 Idle -> Run
+A04 Run -> Stop
+A05 Stop -> Recover
+A06 90 Turn
+A07 180 Turn
+A08 Speed Change
+A09 Rapid Direction Change
+```
+
+重点记录：
+
 - Target Velocity；
 - Target Heading；
+- History；
 - Prediction Horizon；
-- Auto-Replan；
-- 其他关键控制项。
+- Trajectory / Anchor；
+- Replan Trigger；
+- Stop-Recover 行为；
+- 推理与游戏线程成本统计口径。
 
-文档目标不是论文综述，而是回答：
-
-> **ARDY 如何被玩家实时控制？**
-
-## W2-3 Motion Test Protocol V0
-
-固定 8 个长期测试场景。
-
-### A01｜Idle
-无输入 10 秒。
-
-检查：
-- Pose Stability；
-- Root Drift；
-- Foot Drift。
-
-### A02｜Idle → Walk
-静止 → 轻输入 → 保持。
-
-观察：
-- 起步时间；
-- 脚步；
-- 身体朝向。
-
-### A03｜Idle → Run
-静止 → 强输入。
-
-### A04｜Run → Stop
-
-观察：
+Gate：
 
 ```text
-Input ↓
-Anchor 收近
-Prediction 改变
-Character Stop
+ARDY_RUNTIME = PASS
+ARDY_A01_A09 = PASS
+ARDY_REPLAN_CARD = PASS
 ```
 
-### A05｜Stop → Recover
+---
+
+# Sprint 5｜CAMDM + MotionBricks 对照
+## 建议：2026-08-28 ～ 2026-09-01
+
+## CAMDM
+
+M1 要求：
+
+- 官方预训练 / Unity Runtime 跑通；
+- Future Chunk / Buffer / Replan 行为可观察；
+- Style 控制可验证；
+- Dataset → Training 至少做 smoke test；
+- 完整长训练可延后，不阻塞 M1。
+
+状态允许：
 
 ```text
-Run
-↓
-释放输入
-↓
-角色开始准备 Stop
-↓
-突然重新输入
+Runtime PASS
+Training Smoke PASS
+Full Training DEFERRED
 ```
 
-重点观察：
-- Anchor 是否重新拉远；
-- 是否触发 Replan；
-- 旧 Stop 是否被取消；
-- 是否重新进入 Run。
+## MotionBricks
 
-### A06｜90° Turn
+优先确认：
 
-### A07｜180° Turn
+- 可获得 Source / Implementation 到底是什么；
+- Motion Representation；
+- 多阶段网络关系；
+- GASP 等语料的角色；
+- Runtime 是否真正异步；
+- “Game Thread 0.002ms”等公开性能数字的统计边界。
 
-### A08｜Speed Change
+若缺完整训练代码 / 数据：
 
 ```text
-Walk
-→ Run
-→ Walk
+Reproducibility = R0/R1
+Architecture Evidence = PASS
+Training Reproduction = NOT CLAIMED
 ```
 
-这 8 个 Scenario 后续持续用于 Flowform Model V0 / V1、Benchmark 和 Engine Bridge 回归测试。
+不能用社交视频描述替代训练复现。
 
-## W2-4 实验记录
+---
+
+# Sprint 6｜Kimodo / Synthetic Data Triage
+## 建议：2026-09-02 ～ 2026-09-04
+
+只回答：
+
+1. 输入条件是什么；
+2. 能否控制 Trajectory / Constraint；
+3. 能否批量生成；
+4. Skeleton / Output Format；
+5. 能否进入 Flowform Canonical Dataset；
+6. 输出与训练来源许可证是否适合未来开源 / 商用。
+
+如不影响 M3 数据路线，可标记：
+
+```text
+KIMODO = DEFER_TO_M3
+```
+
+不阻塞 M1。
+
+---
+
+# Sprint 7｜统一 Reference Decision
+## 建议：2026-09-05 ～ 2026-09-09
+
+这是 M1 真正的收口任务。
+
+建立统一对照：
+
+| Dimension | AnimGen | Control Operators Ref | ARDY | CAMDM | MotionBricks |
+|---|---|---|---|---|---|
+| Pose Representation | | | | | |
+| Control Representation | | | | | |
+| Generation Unit | | | | | |
+| Runtime Strategy | | | | | |
+| Replan | | | | | |
+| Style | | | | | |
+| Interaction / Props | | | | | |
+| Training Reproducibility | | | | | |
+| Runtime Cost | | | | | |
+| Multi-character Scaling | | | | | |
+| License Boundary | | | | | |
+
+最终输出：
+
+```text
+M1_REFERENCE_DECISION.md
+```
+
+必须回答：
+
+1. M4 V0-A 是否采用 Latent Autoregressive Flow Matching？
+2. V0-B 的 deterministic baseline 用什么结构？
+3. Pose AutoEncoder 是否默认启用？
+4. Flowform Control Schema V0 包含哪些 Element？
+5. Future-chunk Backend 在 M4 做到什么程度，还是 M5 才正式实现？
+6. Runtime 如何统一 NextPose 与 FutureChunk？
+7. M2 Lab 第一版需要显示哪些 Debug Channel？
+
+## 5. 统一实验记录
 
 每次实验至少记录：
 
-- Experiment ID；
-- Date；
-- System；
-- Commit；
-- Model；
-- Configuration；
-- GPU；
-- FPS；
-- Inference Time；
-- Notes；
-- Result。
-
-示例：
-
 ```text
-EXP-ARDY-001
-
-System: ARDY
-Commit: <sha>
-Test: A05 Stop-Recover
-Result: PASS
-
-Notes:
-重新输入后角色明显重新规划；
-停步已经开始但可以被中断。
+Experiment ID
+Date
+Flowform Commit
+Reference / Commit / Sample Version
+Environment
+Model / Dataset
+Config
+Training Duration
+Peak VRAM
+Runtime Metrics
+Scenario
+Result
+Notes
+Screenshots / Video
+License Status
+Reproducibility Level
 ```
 
-### Week 2 验收
-
-- [ ] ARDY 原版成功运行；
-- [ ] GPU 推理成功；
-- [ ] 官方 Demo 成功；
-- [ ] A01～A08 全部执行；
-- [ ] 关键 ARDY 参数可修改；
-- [ ] Stop-Recover 行为观察完成；
-- [ ] 实验结果可保存。
-
-### Gate 1B
+### Reproducibility Level
 
 ```text
-ARDY: PASS
+R3 FULL      Training + Data + Runtime 可重复
+R2 BASELINE  核心闭环可重复，但生产数据 / 部分实现缺失
+R1 RUNTIME   只能运行预训练结果
+R0 EVIDENCE  只能做论文 / 代码片段 / 视频 / 架构分析
 ```
 
----
+## 6. TestReport
 
-# Week 3｜2026-08-24 ～ 2026-08-30
-## MotionBricks + Kimodo
-
-本周不是学习两套完整系统，而是分别回答两个产品问题。
-
-## MotionBricks：动作数据如何组织？
-
-重点确认：
-
-- Motion Representation；
-- Dataset；
-- Synthetic Training；
-- VQVAE / Pose / Root 结构。
-
-整理：
-
-```text
-输入数据
-   ↓
-Representation
-   ↓
-Training Dataset
-   ↓
-Model
-   ↓
-Pose / Root Output
-```
-
-### MotionBricks 验收
-
-- [ ] 官方环境成功创建；
-- [ ] Demo 或 Training Example 成功运行；
-- [ ] 一个 Dataset 可以成功读取；
-- [ ] 一个 Motion Clip 可以可视化；
-- [ ] Skeleton 数据可以识别；
-- [ ] Pose / Root 表示方式记录；
-- [ ] 至少一次最小训练或推理流程完成。
-
-重点不是训练质量，只要求：
-
-```text
-Training Pipeline: PASS
-```
-
-## Kimodo：未来如何低成本增加动作数据？
-
-重点确认：
-
-- Motion Generation；
-- Constraint；
-- Trajectory；
-- Synthetic Dataset Generation。
-
-主要问题：
-
-```text
-输入什么条件
-↓
-生成什么动作
-↓
-Trajectory 是否可控
-↓
-是否可批量生成
-↓
-输出能否进入未来 Flowform Dataset
-```
-
-### Kimodo 固定测试
-
-- Walk Straight；
-- Run Straight；
-- 90° Turn；
-- 180° Turn；
-- Stop；
-- Curve Trajectory。
-
-观察：
-
-- Trajectory Following；
-- Motion Continuity；
-- Foot Quality；
-- Root Motion；
-- Skeleton；
-- Output Format。
-
-最终判断它是否适合作为未来 Teacher / Synthetic Data Generator。
-
-### Week 3 验收
-
-```text
-ARDY             PASS
-MotionBricks     PASS
-Kimodo           PASS
-```
-
-建立三份短技术卡：
-
-```text
-docs/reference/ARDY.md
-docs/reference/MotionBricks.md
-docs/reference/Kimodo.md
-```
-
-每份以 2～5 页等价信息量为目标，不做论文综述。
-
----
-
-# Week 4｜2026-08-31 ～ 2026-09-09
-## 自动化、实验体系和正式基线
-
-前三周解决“能跑”，第四周解决：
-
-> **一个月以后是否还能可靠、可重复地跑。**
-
-## W4-1 环境锁定
-
-记录：
-
-- Python Version；
-- PyTorch Version；
-- CUDA；
-- NVIDIA Driver；
-- CMake；
-- Compiler；
-- Dependency Versions。
-
-形成可复现的环境配置与 Version Manifest。
-
-原则：
-
-> 即使重装系统，也可以按文档重新建立 Flowform 工作站。
-
-## W4-2 统一 Launcher
-
-M1 不做复杂 GUI，以 PowerShell / BAT / Shell 为主。
-
-目标入口：
-
-```text
-Flowform Launcher
-
-1  Doctor
-2  Run ARDY
-3  Run MotionBricks
-4  Run Kimodo
-5  Package Report
-```
-
-目标脚本：
-
-```text
-scripts/doctor.ps1
-scripts/run_ardy.ps1
-scripts/run_motionbricks.ps1
-scripts/run_kimodo.ps1
-scripts/package_report.ps1
-```
-
-WSL 对应提供 `.sh` 版本或由 PowerShell 统一调用 WSL。
-
-## W4-3 实验目录标准
-
-每次实验生成：
+统一目录：
 
 ```text
 reports/
-└─ 2026-09-03_ARDY_A05/
+└─ YYYY-MM-DD_REFERENCE_SCENARIO/
    ├─ environment.json
+   ├─ source.json
    ├─ config.json
    ├─ runtime.log
    ├─ metrics.json
-   ├─ notes.txt
+   ├─ notes.md
    ├─ screenshots/
    └─ video/
 ```
 
-## W4-4 TestReport 打包
+大文件不进 Git。仓库提交 Report Summary、Reference Card 与必要配置。
 
-目标：
+## 7. M1 最终 Gate
 
-```text
-package_report
-```
-
-得到：
+M1 不再要求“所有参考都完整训练”。正确 Gate 是：
 
 ```text
-TestReport_ARDY_A05_20260903.zip
+Environment / GPU                  PASS
+Experiment Report Pipeline         PASS
+AnimGen Player Re-train            PASS
+AnimGen NPC Boundary Recorded      PASS
+Control Operators Reference        PASS
+ARDY Control / Replan Baseline     PASS
+CAMDM / MotionBricks Evidence      PASS or DOCUMENTED_DEFER
+Reference Matrix                   PASS
+M1 Architecture Decision           PASS
 ```
 
-报告必须尽量包含足以复现实验的环境、代码版本、模型、配置与人工观察记录。
+通过后进入 M2。
 
-## W4-5 Reference / License Registry
+## 8. M1 完成后禁止遗留的模糊说法
 
-建立第三方登记表，代码、模型与数据许可证分开记录。
+不得出现：
 
-第一批至少包含：
-
-| 项目 | 用途 | 代码许可 | 模型许可 | 数据许可 | 是否可分发 |
-|---|---|---|---|---|---|
-| ARDY | Runtime Reference | 待核验 | 待核验 | 待核验 | 待核验 |
-| MotionBricks | Training Reference | 待核验 | 待核验 | 待核验 | 待核验 |
-| Kimodo | Data / Generation Reference | 待核验 | 待核验 | 待核验 | 待核验 |
-
-在实际审查前不对具体许可证做推断。
-
----
-
-# 4. Sprint 划分
-
-M1 进一步拆为约 2～4 天一个 Sprint：
-
-| Sprint | 内容 | 完成标准 |
-|---|---|---|
-| S1 | 工作站审计 + 仓库 + WSL2 | 基础环境可用 |
-| S2 | CUDA / PyTorch + Doctor | Environment READY |
-| S3 | ARDY Bring-up | 官方 Demo GPU 运行 |
-| S4 | ARDY 测试体系 | A01～A08 完成 |
-| S5 | MotionBricks | Training Pipeline PASS |
-| S6 | Kimodo | Generation Pipeline PASS |
-| S7 | Launcher / Report | 一键运行与打包 |
-| S8 | 冻结基线 + M1 验收 | Gate A PASS |
-
-## 当前第一个 Sprint：M1-S1
-
-当前优先任务：
-
-1. 建立 Flowform 主仓库；
-2. 检查 Windows 开发环境；
-3. 检查 WSL2；
-4. 检查 NVIDIA / CUDA 状态；
-5. 建立 Python AI 环境；
-6. PyTorch 成功识别本机 NVIDIA GPU；
-7. 跑第一个 GPU Tensor Test；
-8. 保存 EnvironmentReport。
-
-在这一步完成前，暂不安装 ARDY、MotionBricks、Kimodo，避免三个参考项目分别带入不同 CUDA / Python / PyTorch 环境造成混乱。
-
-### M1-S1 完成标准
-
-> **得到一份可复现的工作站环境报告，并确认工作站具备后续 Flowform Neural Motion 实验条件。**
-
----
-
-# 5. M1 职责划分
-
-## 产品负责人 / 本地执行
-
-主要负责：
-
-- 安装程序；
-- 执行命令 / 脚本；
-- Windows GUI 操作；
-- 下载大模型 / Dataset；
-- 运行 Demo；
-- 操作角色；
-- 录像 / 截图；
-- 动作体验判断；
-- 提供错误日志与 TestReport。
-
-优先承担低认知但高时间成本工作，例如下载、解压、点击、重复测试、录像、长时间训练和人工动作观察。
-
-## 架构 / 工程侧
-
-主要负责：
-
-- 软件与版本方案；
-- 仓库与目录设计；
-- 环境脚本；
-- Doctor；
-- 安装错误分析；
-- 参考代码审查；
-- ARDY / MotionBricks / Kimodo 架构抽象；
-- 测试协议；
-- License 审核；
-- 决定哪些技术值得进入 Flowform；
-- 为 M2 Flowform Lab 确定接口抽象。
-
----
-
-# 6. M1 正式成果
-
-M1 结束时至少形成：
-
-1. **Reproducible Workstation** — 环境可以重新建立；
-2. **Environment Doctor** — 一键判断工作站状态；
-3. **Reference Baseline** — ARDY / MotionBricks / Kimodo 全部运行；
-4. **Motion Test Protocol V0** — A01～A08；
-5. **Experiment Report System** — 运行 → 测试 → 保存 → 打包；
-6. **Reference Architecture Notes** — 能回答三个参考系统各自提供什么价值；
-7. **Third-party Registry** — 第三方代码 / 模型 / 数据许可分别登记。
-
-# 7. M1 最终验收表
-
-| 项目 | 要求 |
-|---|---|
-| Windows Dev Environment | PASS |
-| WSL2 | PASS |
-| GPU | PASS |
-| CUDA | PASS |
-| PyTorch GPU | PASS |
-| Git / Git LFS | PASS |
-| CMake | PASS |
-| Environment Doctor | PASS |
-| ARDY | **PASS** |
-| MotionBricks | **PASS** |
-| Kimodo | **PASS** |
-| ARDY A01～A08 | PASS |
-| Experiment Report | PASS |
-| Auto Package | PASS |
-| Repository Structure | PASS |
-| Version Lock | PASS |
-| Reference Notes | PASS |
-| License Register | PASS |
-
-## Gate A｜Reference Systems Ready
-
-通过条件：
-
-```text
-一条统一入口启动 / 检查环境
-
-ARDY             PASS
-MotionBricks     PASS
-Kimodo           PASS
-
-GPU              PASS
-CUDA             PASS
-
-日志 / 实验报告可自动打包
-```
-
-Gate A 通过后正式进入：
-
-> **M2 — Flowform Lab Alpha**
+- “AnimGen 整套系统我们已经复现”——除非明确限定 Player Baseline；
+- “AnimGen NPC 可以重训”——当前官方 Sample 不支持；
+- “MotionBricks 0.002ms 比 AnimGen 1ms 快几百倍”——统计口径未统一；
+- “CAMDM 证明 Flowform 应该改用 Diffusion”——它只证明一种 Backend 可行；
+- “Control Operators Reference 就是 Epic AnimGen 源码”——公开 Reference 是简化实现；
+- “M4 一定是 Transformer”——该约束已取消。
